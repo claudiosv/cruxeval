@@ -186,11 +186,12 @@ def main():
     datasets.logging.set_verbosity_error()
 
     model = LLM(
-        model=args.model, 
-        dtype=args.precision, 
-        trust_remote_code=args.trust_remote_code, 
+        model=args.model,
+        dtype=args.precision,
+        trust_remote_code=args.trust_remote_code,
         gpu_memory_utilization=0.98,
         tensor_parallel_size=args.tensor_parallel_size,
+        enable_prefix_caching=True, # disable for logprobs
     )
 
     tokenizer = AutoTokenizer.from_pretrained(

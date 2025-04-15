@@ -60,6 +60,8 @@ class Generator:
             top_k=self.args.top_k,
             max_tokens=self.args.max_length_generation,
             stop=task.stop_words,
+            # logprobs=1,
+            # prompt_logprobs=1,
         )
 
         ds_loader = DataLoader(ds_tokenized, batch_size=1)
