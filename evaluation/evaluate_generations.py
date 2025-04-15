@@ -18,7 +18,7 @@ def evaluate_generations(generations : dict[str, list], mode):
         generations_list = [generations[f"sample_{i}"] for i in range(len(dataset))]
     except:
         assert False, "check format of generations, should be dictionary of lists with keys of id's in the form sample_i"
-        
+
     with ProcessPoolExecutor() as executor:
         args_list = zip(generations_list, references, [mode] * len(generations_list))
         results = executor.map(evaluate_score, args_list)
@@ -39,20 +39,20 @@ def evaluate_generations(generations : dict[str, list], mode):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--generations_path", 
+        "--generations_path",
         help="JSON path containing outputs to evaluate. Should contain a list of \
               length 800, where each element is a list of different generations \
               for that benchmark sample.",
         type=str,
     )
     parser.add_argument(
-        "--scored_results_path", 
+        "--scored_results_path",
         help="path to dump scored results",
         type=str,
         default=None,
     )
     parser.add_argument(
-        "--mode", 
+        "--mode",
         help="either input or output, depending on which one to evaluate",
         type=str,
         default=None,

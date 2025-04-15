@@ -1,5 +1,6 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 
+from pathlib import Path
 import sys
 import json
 import random
@@ -9,14 +10,13 @@ import torch
 import datasets
 import numpy as np
 import transformers
-from vllm import LLM
 from transformers import HfArgumentParser, AutoTokenizer
 
 from generator import Generator
 from generation_arguments import EvalArguments
 
 from tasks import ALL_TASKS
-
+from syncode.inference.model import Model
 
 class MultiChoice:
     def __init__(self, choices):
@@ -185,12 +185,10 @@ def main():
     transformers.logging.set_verbosity_error()
     datasets.logging.set_verbosity_error()
 
-    model = LLM(
-        model=args.model, 
-        dtype=args.precision, 
-        trust_remote_code=args.trust_remote_code, 
-        gpu_memory_utilization=0.98,
-        tensor_parallel_size=args.tensor_parallel_size,
+    model = Model(
+        model_id=args.model,
+        dtype=args.precision,
+        compile_model=False,
     )
 
     tokenizer = AutoTokenizer.from_pretrained(
@@ -212,11 +210,12 @@ def main():
     generator = Generator(model, tokenizer, args)
     generations, generations_raw, references = generator.generate(args.task_name)
 
+    path = args.save_generations_path
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(args.save_generations_path, "w") as fp:
         json.dump(generations, fp)
         print(f"generations were saved at {args.save_generations_path}")
 
-    path = args.save_generations_path
     path = path.split(".json")[0] + "_raw" + ".json"
     with open(path, "w") as fp:
         json.dump(generations_raw, fp)

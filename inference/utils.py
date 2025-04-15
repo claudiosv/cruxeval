@@ -1,10 +1,9 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 
 import math
-import warnings
 from collections import defaultdict
 
-import torch
+from syncode.inference.model import Model
 from torch.utils.data import IterableDataset
 from tqdm import tqdm
 
@@ -48,28 +47,28 @@ class TokenizedDataset(IterableDataset):
 
         return_token_type_ids = None  # default
 
-        outputs = self.tokenizer(
-            prompts,
-            padding=True,
-            truncation=True,
-            return_tensors="pt",
-            max_length=self.max_length,
-            return_token_type_ids=return_token_type_ids,
-        )
+        # outputs = self.tokenizer(
+        #     prompts,
+        #     padding=True,
+        #     truncation=True,
+        #     return_tensors="pt",
+        #     max_length=self.max_length,
+        #     return_token_type_ids=return_token_type_ids,
+        # )
 
         for sample in range(self.n_tasks):
             for _ in range(self.n_copies):
                 yield {
                     "row_index": row_idxs[sample],
                     "prompt": prompts[sample],
-                    "ids": outputs.input_ids[sample],
-                    "input_len": outputs.attention_mask[sample].sum(),
+                    # "ids": outputs.input_ids[sample],
+                    # "input_len": outputs.attention_mask[sample].sum(),
                 }
 
 
 def complete_code(
     task,
-    model,
+    model: Model,
     sampling_params,
     dataloader,
     batch_size,
@@ -77,27 +76,33 @@ def complete_code(
     prefix="",
     postprocess=True,
 ):
-    max_length_generation = sampling_params.max_tokens
+    # max_length_generation = sampling_params.max_tokens
     code_gens = defaultdict(list)
     code_gens_raw = defaultdict(list)
     total = math.ceil(n_tasks * dataloader.dataset.n_copies)
     for step, batch in tqdm(enumerate(dataloader), total=total):
-        inputs = batch["ids"][:, : batch["input_len"]].tolist()
-        num_tokens = len(inputs[0])
-        if max_length_generation - num_tokens < 0:
-            code_gens[int(batch["row_index"][0])].extend([""] * batch_size)
-            code_gens_raw[int(batch["row_index"][0])].extend([""] * batch_size)
-            warnings.warn(
-                f"Skipping task {batch['row_index'][0]} because it is too long -- [{max_length_generation=}|{num_tokens=}]"
-            )
-            continue
-        sampling_params.max_tokens = max_length_generation - num_tokens
+        # inputs = batch["ids"][:, : batch["input_len"]].tolist()
+        # num_tokens = len(inputs[0])
+        # if max_length_generation - num_tokens < 0:
+        #     code_gens[int(batch["row_index"][0])].extend([""] * batch_size)
+        #     code_gens_raw[int(batch["row_index"][0])].extend([""] * batch_size)
+        #     warnings.warn(
+        #         f"Skipping task {batch['row_index'][0]} because it is too long -- [{max_length_generation=}|{num_tokens=}]"
+        #     )
+        #     continue
+        # sampling_params.max_tokens = max_length_generation - num_tokens
         outputs = model.generate(
-            prompt_token_ids=inputs, sampling_params=sampling_params, use_tqdm=False
+            prompt=batch["prompt"],
+            stop_strings=sampling_params["stop"],
+            max_tokens=sampling_params["max_tokens"],
+            max_new_tokens=None,
+            skip_special_tokens=True,
+            num_return_sequences=1, # sampling_params["n"],
+            include_stop_sequence=False,
         )
 
         generated_tasks = batch["row_index"].repeat(batch_size)
-        generated_texts = [o.text for o in outputs[0].outputs]
+        generated_texts = [o.generation for o in outputs]
         combined_texts = [
             batch["prompt"][0] + generated_text for generated_text in generated_texts
         ]

@@ -1,15 +1,12 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 
-import sys
 from math import ceil
 
 import numpy as np
-from vllm import SamplingParams
+import tasks
 from torch.utils.data import DataLoader
-
 from utils import TokenizedDataset, complete_code
 
-import tasks
 
 class Generator:
     def __init__(self, model, tokenizer, args):
@@ -18,10 +15,13 @@ class Generator:
         self.args = args
 
     def generate(self, task_name):
-        if self.args.model == "Phind/Phind-CodeLlama-34B-v2" and task_name == "output_prediction":
-            task = tasks.get_task(task_name, cot = self.args.cot, phind_output = True)
+        if (
+            self.args.model == "Phind/Phind-CodeLlama-34B-v2"
+            and task_name == "output_prediction"
+        ):
+            task = tasks.get_task(task_name, cot=self.args.cot, phind_output=True)
         else:
-            task = tasks.get_task(task_name, cot = self.args.cot, phind_output = False)
+            task = tasks.get_task(task_name, cot=self.args.cot, phind_output=False)
 
         dataset = task.get_dataset()
 
@@ -53,7 +53,7 @@ class Generator:
             prefix=self.args.prefix,
         )
 
-        sampling_params = SamplingParams(
+        sampling_params = dict(
             n=self.args.batch_size,
             temperature=self.args.temperature,
             top_p=self.args.top_p,
@@ -65,16 +65,23 @@ class Generator:
         ds_loader = DataLoader(ds_tokenized, batch_size=1)
 
         generations, generations_raw = complete_code(
-            task, self.model, sampling_params, ds_loader, self.args.batch_size, n_tasks
+            task,
+            self.model,
+            sampling_params,
+            ds_loader,
+            self.args.batch_size,
+            n_tasks,
         )
 
         references = [task.get_reference(dataset[i]) for i in range(n_tasks)]
 
         if len(list(generations.values())[0]) > self.args.n_samples:
             generations = {k: v[: self.args.n_samples] for k, v in generations.items()}
-            generations_raw = {k: v[: self.args.n_samples] for k, v in generations_raw.items()}
-        assert all(
-            [len(gen) == self.args.n_samples for gen in generations.values()]
-        ), f"{[len(gen) for gen in generations.values()]}"
+            generations_raw = {
+                k: v[: self.args.n_samples] for k, v in generations_raw.items()
+            }
+        assert all([len(gen) == self.args.n_samples for gen in generations.values()]), (
+            f"{[len(gen) for gen in generations.values()]}"
+        )
 
         return generations, generations_raw, references
